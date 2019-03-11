@@ -24,24 +24,28 @@ Vue.component("data-table", {
                     perPage: 15
                 };
             }
+        },
+        serverSide: {
+            type: Boolean,
+            default: false
         }
     },
     template: `
         <div class="card">
-            <div class="card-header">
+            <div class="card-header bg-warning">
                 <div class="row">
                     <div class="col-md-6">
                         <button type="button" class="btn btn-secondary">
-                            <i class="fa fa-plus"></i> Novo Registro
+                            <i class="fa fa-plus"></i>
                         </button>
                     </div>
                     <div class="col-md-6 text-right">
                         <div class="btn-group">
-                            <button type="button" class="btn btn-default" :style="[filtered ? {'color':'#bbb'} : {'color':'#000'}]" @click="withFiltered()">
+                            <button type="button" class="btn btn-dark" :style="[filtered ? {'color':'#bbb'} : {'color':'#000'}]" @click="withFiltered()">
                                 <i class="fa fa-filter"></i>
                             
                             </button>
-                            <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <button type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <i class="fa fa-cogs"></i>
                             </button>
                             <div class="dropdown-menu dropdown-menu-right">
@@ -58,13 +62,13 @@ Vue.component("data-table", {
             </div>
             <div class="card-body" style="padding:0 !important">
 
-      <table class="table table-striped table-hover">
+      <table class="table table-striped table-hover table-dark">
         <thead>
             <tr>
                 <th v-show="checkable">
                     <input type="checkbox">
                 </th>            
-                <th v-for="column in table.columns" v-if="column.visible">{{column.title}}<i v-if="column.sortable" :ref="'sort_'+column.field" @click="sortColumn(column.field)" class="fa fa-sort" style="float:right"></i></th>
+                <th v-for="column in table.columns" v-if="column.visible">{{column.title}}<i v-if="column.sortable" :ref="'sort_'+column.field" @click="sortColumn(column)" class="fa fa-sort" style="float:right"></i></th>
                 <th v-show="actions.length">Ações</th>
             </tr>
             <tr v-show="filtered">
@@ -79,11 +83,11 @@ Vue.component("data-table", {
                 </td>
                 <td v-show="actions.length">
                     <div class="group-btn">
-                        <button class="btn btn-default">
+                        <button class="btn btn-dark">
                             <i class="fa fa-search"></i>
                         </button>
 
-                        <button class="btn btn-default" type="button" @click.prevent="getData()">
+                        <button class="btn btn-dark" type="button" @click.prevent="getData(table.page)">
                             <i class="fa fa-sync"></i>
                         </button>
                     </div>
@@ -127,7 +131,7 @@ Vue.component("data-table", {
                             por página.
                         </div>
                         <div class="col-md-12 text-right">
-                            <nav aria-label="Pagination" v-show="table.data.length > table.perPage">
+                            <nav aria-label="Pagination">
                                 <ul class="pagination justify-content-end">
                                     <li class="page-item" :class="{disabled:this.table.page <= 1}" @click="setPrevPage()">
                                         <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Anterior</a>
@@ -137,7 +141,6 @@ Vue.component("data-table", {
                                         <a class="page-link" href="#">Próximo</a>
                                     </li>
                                 </ul>
-                                <input v-model="table.page">
                             </nav>
                         </div>
                     </div>
@@ -170,6 +173,10 @@ Vue.component("data-table", {
         };
     },
     watch: {
+        "table.perPage": function (){
+            if (this.serverSide)
+                this.getData(this.table.page);
+        },
         "table.data": function () {
             this.setPages();
         },
@@ -184,7 +191,11 @@ Vue.component("data-table", {
             );
 
             columns = Object.keys(search).filter(field => search[field]);
-            this.filter.data = this.table.data.filter(data => columns.every(field => data[field].toString().toLowerCase().indexOf(search[field]) !== -1));
+            this.table.page = 1
+            if (this.serverSide)
+                this.getData(this.table.page);
+            else
+                this.filter.data = this.table.data.filter(data => columns.every(field => data[field].toString().toLowerCase().indexOf(search[field]) !== -1));
         },
 
         "columns": function (options) {
@@ -195,20 +206,48 @@ Vue.component("data-table", {
     },
     computed: {
         displayedData() {
-            this.filter.data = this.filter.data.length ? this.filter.data : this.table.data;
-            return this.paginate(this.filter.data);
+            if(this.serverSide){
+                this.filter.data = this.table.data;
+                return this.paginate(this.table.data);
+            }else{
+                this.filter.data = this.filter.data.length ? this.filter.data : this.table.data;
+                return this.paginate(this.filter.data);
+            }
         }
     },
     methods: {
-        getData() {
-            axios
+        getData(page) {
+
+            if(this.serverSide){
+
+                axios
+                .post(this.urlApi,{
+                    initial: page ,
+                    lengthPage: this.table.perPage,
+                    columns: this.table.columns,
+                    filter: [this.filter.searchColumns,this.filter.searchValues]
+                })
+                .then((resp) => {
+                    this.filter.data = this.table.data = resp.data.data;
+                    if(this.serverSide){
+                        this.table.total = parseInt(resp.data.total);
+                        this.table.page = page
+                    }else
+                        this.table.total = this.table.data.length;
+                })
+                .catch(error => {});
+            }else{
+
+                axios
                 .get(this.table.data)
                 .then(resp => {
                     this.filter.data = this.table.data = resp.data;
                     this.table.total = this.table.data.length;
                 })
-                .catch(error => {});
-
+                .catch(error => {});                
+            }
+            
+            this.filter.searchColumns = [];
             this.table.columns.filter(data => {
                 this.filter.searchColumns.push(data.field);
                 if (data.selectbox != undefined) {
@@ -223,13 +262,25 @@ Vue.component("data-table", {
             });
         },
         setPages() {
-            this.table.pages = [];
-            this.table.maxPage = Math.ceil(
-                this.filter.data.length / this.table.perPage
-            );
 
-            for (let index = 1; index <= this.table.maxPage; index++) {
-                this.table.pages.push(index);
+            this.table.pages = [];
+
+            if (this.serverSide){
+
+                this.table.maxPage = Math.ceil(this.table.total / this.table.perPage)
+
+                for (let index = 1; index <= this.table.maxPage; index++) {
+                    this.table.pages.push(index);
+                }                
+
+            }else{
+                this.table.maxPage = Math.ceil(
+                    this.filter.data.length / this.table.perPage
+                );
+    
+                for (let index = 1; index <= this.table.maxPage; index++) {
+                    this.table.pages.push(index);
+                }
             }
         },
         paginate(data) {
@@ -237,7 +288,10 @@ Vue.component("data-table", {
             let perPage = this.table.perPage;
             let from = page * perPage - perPage;
             let to = page * perPage;
-            return data.slice(from, to);
+            if (this.serverSide)
+                return data
+            else
+                return data.slice(from, to);
         },
         setPrevPage() {
             if (this.table.page - this.table.perPage <= 1) {
@@ -254,7 +308,10 @@ Vue.component("data-table", {
             }
         },
         setPage(page) {
-            this.table.page = page;
+            if(this.serverSide)
+                this.getData(page)
+            else
+                this.table.page = page;
         },
         mergeArrayByIndex(array1, array2) {
             var obj = {};
@@ -294,15 +351,30 @@ Vue.component("data-table", {
             this.filtered = !this.filtered;
         },
         sortColumn(column, dir = 'asc') {
-            let className = this.$refs['sort_' + column][0].className;
-            if (className.toString().toLowerCase().indexOf("sort_asc") !== -1) {
+
+            let className = this.$refs['sort_' + column.field][0].className;
+
+            /**
+             * SE NAO TIVER NADA -> FAZER ORDEM CRESCENTE
+             * SE TIVER ORDEM CRESCENTE  -> FAZER ORDEM DESCRECENTE
+             * SE TIVER EM ORDEM DESCRECENTE -> NAO FAZER NADA
+             */
+
+            if (className.toString().toLowerCase().indexOf("sort_asc") == -1 && className.toString().toLowerCase().indexOf("sort_desc") == -1) {
                 dir = 'asc';
-                this.$refs['sort_' + column][0].className = 'sort_desc fa fa-sort-up';
-            } else {
+                this.$refs['sort_' + column.field][0].className = 'sort_asc fa fa-sort-down';
+                column.ordering = 'asc';
+            } else if (className.toString().toLowerCase().indexOf("sort_asc") !== -1) {
                 dir = 'desc';
-                this.$refs['sort_' + column][0].className = 'sort_asc fa fa-sort-down';
+                this.$refs['sort_' + column.field][0].className = 'sort_desc fa fa-sort-up';
+                column.ordering = 'desc';
+            }else if (className.toString().toLowerCase().indexOf("sort_desc") !== -1){
+                dir = 'asc';
+                this.$refs['sort_' + column.field][0].className = 'fa fa-sort';
+                column.ordering = 'not';
             }
-            this.filter.data.sort(this.compareValues(column, dir))
+
+            this.filter.data.sort(this.compareValues(column.field, dir))
         },
     },
     beforeUpdate() {
@@ -313,6 +385,6 @@ Vue.component("data-table", {
     },
 
     mounted() {
-        this.getData();
+        this.getData(this.table.page);
     }
 });
