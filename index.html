@@ -18,15 +18,14 @@
           { title: 'CPF', field: 'NB_CPF_CNPJ', visible:true, sortable: true },
           { title: 'NOME', field: 'TX_NOME', visible:true, sortable: true }
         ]"
-      :server-side="true"
-      :filtered="true" :checkable="true" :paginator="{perPage:15}" :actions="[
+      :server-side="true" :filtered="true" :checkable="true" :paginator="{perPage:15}" :actions="[
             {label: '', icon: 'fa fa-list-ul', class:'btn-info', id:['id_usuario', 'tx_cpf']},
             {label: '', icon: 'fa fa-edit', class:'btn-warning', id:['id_usuario', 'tx_cpf']},
             {label: '', icon: 'fa fa-trash', class:'btn-danger', id:['id_usuario', 'tx_cpf']}
         ]"
       url-api="api/api.php"></data-table>
 
-      <!-- <data-table :columns="[
+    <!-- <data-table :columns="[
       { title: 'Código', field: 'id', visible:true, sortable: true, selectbox: [{id:1, text:'Admin'}, {id:2, text:'Suport'}]},
       { title: 'Titulo', field: 'title', visible:true, sortable: true },
       { title: 'Post', field: 'body', visible:true, sortable: false },

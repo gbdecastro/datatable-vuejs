@@ -49,11 +49,11 @@ Vue.component("data-table", {
                                 <i class="fa fa-cogs"></i>
                             </button>
                             <div class="dropdown-menu dropdown-menu-right">
-                                <div class="form-check" v-for="column, index in table.columns">
-                                    <input class="form-check-input" type="checkbox" :checked="isVisibleColumn(column)" @click="showColumn(column)">
-                                    <label class="form-check-label" for="defaultCheck1">
-                                        {{column.title}}
-                                    </label>
+                                <div class="col-6">
+                                    <div class="form-check form-check-inline" v-for="column, index in table.columns">
+                                        <input class="form-check-input" type="checkbox" :checked="isVisibleColumn(column)" @click="showColumn(column)">
+                                        <label class="form-check-label">{{column.title}}</label>                                 
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -133,13 +133,34 @@ Vue.component("data-table", {
                         <div class="col-md-12 text-right">
                             <nav aria-label="Pagination">
                                 <ul class="pagination justify-content-end">
+
+                                    <li class="page-item" v-show="table.page != 1" @click="setPage(1)">
+                                        <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
+                                            <i class="fa fa-angle-double-left"></i>
+                                        </a>
+                                    </li>
+
                                     <li class="page-item" :class="{disabled:this.table.page <= 1}" @click="setPrevPage()">
-                                        <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Anterior</a>
+                                        <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
+                                            <i class="fa fa-angle-left"></i>
+                                        </a>
                                     </li>
-                                    <li class="page-item" :class="{active: pageNumber == table.page}" v-for="pageNumber in table.pages.slice(table.page-1, table.page+5)" @click="setPage(pageNumber)"><a class="page-link" href="#"> {{pageNumber}}</a></li>
+                                    
+                                    <li class="page-item" :class="{active: pageNumber == table.page}" v-for="pageNumber in displayedPaginate" @click="setPage(pageNumber)">
+                                        <a class="page-link" href="#"> {{pageNumber}}</a>
+                                    </li>
+
                                     <li class="page-item"  :class="{disabled:this.table.page >= this.table.maxPage}" @click="setNextPage()">
-                                        <a class="page-link" href="#">Próximo</a>
+                                        <a class="page-link" href="#">
+                                            <i class="fa fa-angle-right"></i>
+                                        </a>
                                     </li>
+
+                                    <li class="page-item" v-show="table.page != table.maxPage" @click="setPage(table.maxPage)">
+                                        <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
+                                            <i class="fa fa-angle-double-right"></i>
+                                        </a>
+                                    </li>                                    
                                 </ul>
                             </nav>
                         </div>
@@ -160,6 +181,8 @@ Vue.component("data-table", {
                 actions: this.actions,
                 total: 0,
                 page: 1,
+                firstPage: 0,
+                lastPage: 9,
                 perPage: 10,
                 maxPage: 0,
                 pages: []
@@ -213,6 +236,17 @@ Vue.component("data-table", {
                 this.filter.data = this.filter.data.length ? this.filter.data : this.table.data;
                 return this.paginate(this.filter.data);
             }
+        },
+        displayedPaginate(){
+            let page = this.table.page //Pagina Atual
+            let perPage = this.table.perPage //Por Pagina
+            let d = page % perPage
+            console.log(d)
+            if(d > 5){
+                this.table.firstPage++;
+                this.table.lastPage++;
+            }
+            return this.table.pages.slice(this.table.firstPage,this.table.lastPage)
         }
     },
     methods: {
@@ -265,23 +299,14 @@ Vue.component("data-table", {
 
             this.table.pages = [];
 
-            if (this.serverSide){
-
+            if (this.serverSide)
                 this.table.maxPage = Math.ceil(this.table.total / this.table.perPage)
-
-                for (let index = 1; index <= this.table.maxPage; index++) {
-                    this.table.pages.push(index);
-                }                
-
-            }else{
-                this.table.maxPage = Math.ceil(
-                    this.filter.data.length / this.table.perPage
-                );
-    
-                for (let index = 1; index <= this.table.maxPage; index++) {
-                    this.table.pages.push(index);
-                }
-            }
+            else
+                this.table.maxPage = Math.ceil(this.filter.data.length / this.table.perPage)
+            
+            for (let index = 1; index <= this.table.maxPage; index++) {
+                this.table.pages.push(index);
+            }                
         },
         paginate(data) {
             let page = this.table.page;
@@ -299,6 +324,8 @@ Vue.component("data-table", {
             } else {
                 this.table.page -= this.table.perPage;
             }
+            if(this.serverSide)
+                this.getData(this.table.page)            
         },
         setNextPage() {
             if (this.table.page + this.table.perPage >= this.table.maxPage) {
@@ -306,6 +333,8 @@ Vue.component("data-table", {
             } else {
                 this.table.page += this.table.perPage;
             }
+            if(this.serverSide)
+                this.getData(this.table.page)
         },
         setPage(page) {
             if(this.serverSide)
