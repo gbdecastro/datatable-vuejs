@@ -13,15 +13,18 @@
 
 <body>
   <div id="app">
-    <data-table :columns="[
+    <data-table :tools="[
+            {spa: false, target: '/novo', icon: 'fa fa-plus', class:'btn-default', label: ''}
+          ]" 
+          :columns="[
           { title: 'COD PESSOA', field: 'ID_PESSOA', visible:true, sortable: true },
           { title: 'CPF', field: 'NB_CPF_CNPJ', visible:true, sortable: true },
           { title: 'NOME', field: 'TX_NOME', visible:true, sortable: true }
         ]"
-      :server-side="true" :filtered="true" :checkable="true" :paginator="{perPage:15}" :actions="[
-            {label: '', icon: 'fa fa-list-ul', class:'btn-info', id:['id_usuario', 'tx_cpf']},
-            {label: '', icon: 'fa fa-edit', class:'btn-warning', id:['id_usuario', 'tx_cpf']},
-            {label: '', icon: 'fa fa-trash', class:'btn-danger', id:['id_usuario', 'tx_cpf']}
+      :server-side="true" :filtered="true" :checkable="true" :paginator="{perPage:10}" :actions="[
+            {label: '', icon: 'fa fa-list-ul', class:'btn-info text-dark', spa: false, target: 'detail', key:['ID_PESSOA', 'NB_CPF_CNPJ']},
+            {label: '', icon: 'fa fa-edit', class:'btn-warning text-dark', spa: false, target: 'edit', key:['ID_PESSOA', 'NB_CPF_CNPJ']},
+            {label: '', icon: 'fa fa-trash', class:'btn-danger text-dark', spa: true, target: 'delete', key:['ID_PESSOA', 'NB_CPF_CNPJ']}
         ]"
       url-api="api/api.php"></data-table>
 

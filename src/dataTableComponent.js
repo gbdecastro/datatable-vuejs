@@ -1,5 +1,8 @@
 Vue.component("data-table", {
     props: {
+        tools:{
+            type: [Array, Object]
+        },
         columns: {
             type: [Array, Object]
         },
@@ -35,9 +38,18 @@ Vue.component("data-table", {
             <div class="card-header bg-warning">
                 <div class="row">
                     <div class="col-md-6">
-                        <button type="button" class="btn btn-secondary">
-                            <i class="fa fa-plus"></i>
-                        </button>
+                        <div class="btn-group" v-show="tools.length">
+                            <div v-for="tool in tools">
+                                <button v-if="tool.spa" data-toogle="modal" :data-target="tool.target" :class="tool.class" class="btn" type="button">
+                                    <i :class="tool.icon"></i>
+                                    {{ tool.label }}
+                                </button>
+                                <a v-if="!tool.spa" :href="tool.target" :class="tool.class" class="btn">
+                                    <i :class="tool.icon"></i>
+                                    {{ tool.label }}
+                                </a>                                
+                            </div>                        
+                        </div>
                     </div>
                     <div class="col-md-6 text-right">
                         <div class="btn-group">
@@ -64,17 +76,11 @@ Vue.component("data-table", {
 
       <table class="table table-striped table-hover table-dark">
         <thead>
-            <tr>
-                <th v-show="checkable">
-                    <input type="checkbox">
-                </th>            
+            <tr>           
                 <th v-for="column in table.columns" v-if="column.visible">{{column.title}}<i v-if="column.sortable" :ref="'sort_'+column.field" @click="sortColumn(column)" class="fa fa-sort" style="float:right"></i></th>
                 <th v-show="actions.length">Ações</th>
             </tr>
             <tr v-show="filtered">
-                <td v-show="checkable">
-                    
-                </td>
                 <td v-for="column, index in table.columns" v-if="column.visible">
                     <input v-if="!column.selectbox" class="form-control" type="text" :name="column.field" v-model="filter.searchValues[index]">
                     <select v-else class="form-control select2" :name="column.field" v-model="filter.searchValues[index]">
@@ -101,16 +107,19 @@ Vue.component("data-table", {
             </tr>
             
             <tr v-else v-for="row in displayedData">
-                <td v-show="checkable">
-                    <input type="checkbox" name="selection[]">
-                </td>
                 <td v-for="column in table.columns" v-if="column.visible">{{row[column.field]}}</td>
                 <td v-show="actions.length">
                     <div class="btn-group">
-                    <button class="btn" :class="action.class" v-for="action in actions">
-                        <i v-show="action.icon" :class="action.icon"></i>
-                        {{action.label}}
-                    </button>
+                        <div v-for="action in actions">
+                            <a v-if="!action.spa" :href="formatUrlActions(row,action)" :class="action.class" class="btn">
+                                <i v-show="action.icon" :class="action.icon"></i>
+                                {{action.label}}
+                            </a>
+                            <button v-if="action.spa" @click="dev()" :class="action.class" class="btn">
+                                <i v-show="action.icon" :class="action.icon"></i>
+                                {{action.label}}
+                            </button>                              
+                        </div>                      
                     </div>
                 </td>
             </tr>
@@ -123,10 +132,10 @@ Vue.component("data-table", {
                         <div class="col-md-12">
                             total de <b>{{table.total}}</b> registros, 
                             <select v-model="table.perPage">
-                                <option value="10" selected>10</option>
-                                <option value="30">30</option>
-                                <option value="60">60</option>
-                                <option value="100">100</option>
+                                <option value=10 selected>10</option>
+                                <option value=30>30</option>
+                                <option value=60>60</option>
+                                <option value=100>100</option>
                             </select>
                             por página.
                         </div>
@@ -182,7 +191,7 @@ Vue.component("data-table", {
                 total: 0,
                 page: 1,
                 firstPage: 0,
-                lastPage: 9,
+                lastPage: 10,
                 perPage: 10,
                 maxPage: 0,
                 pages: []
@@ -239,13 +248,24 @@ Vue.component("data-table", {
         },
         displayedPaginate(){
             let page = this.table.page //Pagina Atual
-            let perPage = this.table.perPage //Por Pagina
-            let d = page % perPage
-            console.log(d)
-            if(d > 5){
-                this.table.firstPage++;
-                this.table.lastPage++;
+            let perPage = this.paginator.perPage //Por Pagina
+            let d = page % this.table.lastPage
+            
+            //Se a Pagina for a Final
+            if (this.table.page == this.table.maxPage){
+                this.table.lastPage = this.table.page
+                this.table.firstPage = this.table.page - perPage - 1
+            //Controle de Pagina Inicial
+            }else if (this.table.page <= 0){
+                this.table.page = 1
+                this.table.firstPage = 0
+                this.table.lastPage = this.table.firstPage + perPage
+            //Demais Paginas
+            }else{
+                this.table.firstPage = this.table.page - 1
+                this.table.lastPage = this.table.firstPage + perPage
             }
+            
             return this.table.pages.slice(this.table.firstPage,this.table.lastPage)
         }
     },
@@ -319,19 +339,26 @@ Vue.component("data-table", {
                 return data.slice(from, to);
         },
         setPrevPage() {
-            if (this.table.page - this.table.perPage <= 1) {
-                this.table.page = 1;
-            } else {
-                this.table.page -= this.table.perPage;
-            }
+            // if (this.table.page - this.table.perPage <= 1) {
+            //     this.table.page = 1;
+            // } else {
+            //     this.table.page -= this.table.perPage;
+            //     this.table.page--;
+            // }
+            let page = this.table.page - 1;
+            if(page < 1)
+                page = 1
+            else
+                this.table.page--;
             if(this.serverSide)
-                this.getData(this.table.page)            
+                this.getData(page);            
         },
         setNextPage() {
             if (this.table.page + this.table.perPage >= this.table.maxPage) {
                 this.table.page = this.table.maxPage;
             } else {
-                this.table.page += this.table.perPage;
+                //this.table.page += this.table.perPage;
+                this.table.page++;
             }
             if(this.serverSide)
                 this.getData(this.table.page)
@@ -405,12 +432,27 @@ Vue.component("data-table", {
 
             this.filter.data.sort(this.compareValues(column.field, dir))
         },
+        formatUrlActions(row,action){
+            
+            let url = '';
+
+            for (let index = 0; index < action.key.length; index++) {
+                let element = action.key[index];
+                let data = row[element];
+                url += '/'+data 
+                
+            }
+            return action.target + url
+        },
+        dev(){
+            alert('Em Desenvolvimento');
+        }
     },
     beforeUpdate() {
-        console.log("atualizando")
+        //console.log("atualizando")
     },
     updated() {
-        console.log("atualizado!")
+        //console.log("atualizado!")
     },
 
     mounted() {
